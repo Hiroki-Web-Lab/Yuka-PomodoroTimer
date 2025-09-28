@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>優香 勉強タイマー</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #f0f0f0;
+            --text-color: #333;
+            --light-gray: #ddd;
+            --white: #fff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(to bottom, #e8f5e9, #ffffff);
+            color: var(--text-color);
+            min-height: 100vh;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: var(--white);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+
+        h1, h2 {
+            margin-top: 0;
+            font-weight: 700;
+        }
+
+        /* Countdown Section */
+        #countdown-section h1 {
+            font-size: 1.5em;
+            color: var(--primary-color);
+        }
+        #countdown-timer {
+            font-size: 1.2em;
+            font-weight: 500;
+        }
+
+        /* Pomodoro Section */
+        #pomodoro-timer-display {
+            font-size: 4em;
+            font-weight: 700;
+            margin: 10px 0;
+        }
+        #pomodoro-session-type {
+            font-size: 1.2em;
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+        .pomodoro-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* ToDo List Section */
+        #todo-input {
+            width: calc(100% - 80px);
+            padding: 12px;
+            border: 2px solid var(--light-gray);
+            border-radius: 8px;
+            font-size: 1em;
+            margin-right: 10px;
+        }
+        #todo-list {
+            list-style: none;
+            padding: 0;
+            margin-top: 20px;
+            text-align: left;
+        }
+        #todo-list li {
+            display: flex;
+            align-items: center;
+            padding: 12px 5px;
+            font-size: 1.1em;
+            border-bottom: 1px solid var(--secondary-color);
+        }
+        #todo-list li.completed {
+            text-decoration: line-through;
+            color: #aaa;
+        }
+        #todo-list input[type="checkbox"] {
+            width: 22px;
+            height: 22px;
+            margin-right: 15px;
+            flex-shrink: 0;
+        }
+        .delete-btn {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            color: #ff5c5c;
+            cursor: pointer;
+            margin-left: auto;
+            padding: 0 10px;
+        }
+
+        /* General Button Styles */
+        .btn {
+            padding: 12px 20px;
+            font-size: 1em;
+            font-weight: 600;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.1s ease, background-color 0.2s ease;
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--white);
+        }
+        .btn-secondary {
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+        }
+        .btn:active {
+            transform: scale(0.96);
+        }
+
+        /* Overlay */
+        #overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+        #overlay.visible {
+            display: flex;
+            opacity: 1;
+        }
+        #overlay-message {
+            color: var(--white);
+            font-size: 3em;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Countdown Section -->
+        <div id="countdown-section" class="card">
+            <h1>優香共通テストまで</h1>
+            <div id="countdown-timer">計算中...</div>
+        </div>
+
+        <!-- Pomodoro Timer Section -->
+        <div id="pomodoro-section" class="card">
+            <h2>ポモドーロタイマー</h2>
+            <div id="pomodoro-session-type">集中</div>
+            <div id="pomodoro-timer-display">25:00</div>
+            <div class="pomodoro-buttons">
+                <button id="pomodoro-start-pause" class="btn btn-primary">開始</button>
+                <button id="pomodoro-reset" class="btn btn-secondary">リセット</button>
+                <button id="pomodoro-skip" class="btn btn-secondary">スキップ</button>
+            </div>
+        </div>
+
+        <!-- ToDo List Section -->
+        <div id="todo-section" class="card">
+            <h2>ToDoリスト</h2>
+            <div>
+                <input type="text" id="todo-input" placeholder="勉強内容を入力">
+                <button id="add-todo-btn" class="btn btn-primary">追加</button>
+            </div>
+            <ul id="todo-list"></ul>
+        </div>
+    </div>
+
+    <!-- Full-screen Overlay -->
+    <div id="overlay">
+        <div id="overlay-message"></div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- COMMON ---
+        const ONE_SECOND = 1000;
+        const ONE_MINUTE = ONE_SECOND * 60;
+        const ONE_HOUR = ONE_MINUTE * 60;
+        const ONE_DAY = ONE_HOUR * 24;
+
+        // --- OVERLAY ---
+        const overlay = document.getElementById('overlay');
+        const overlayMessage = document.getElementById('overlay-message');
+
+        function showOverlay(message, duration) {
+            overlayMessage.textContent = message;
+            overlay.classList.add('visible');
+            setTimeout(() => {
+                overlay.classList.remove('visible');
+            }, duration);
+        }
+
+        // --- COUNTDOWN ---
+        const countdownTimerEl = document.getElementById('countdown-timer');
+        const targetDate = new Date('2026-01-17T00:00:00').getTime();
+        let countdownInterval;
+
+        const specialDates = {
+            '100': 'がんばれ優香！',
+            '50': 'がんばれ優香！',
+            '1': '明日は全力で頑張れ！'
+        };
+        const shownMessages = new Set(JSON.parse(localStorage.getItem('shownCountdownMessages')) || []);
+
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const distance = targetDate - now;
+
+            if (distance < 0) {
+                countdownTimerEl.textContent = 'テストお疲れ様！';
+                clearInterval(countdownInterval);
+                return;
+            }
+
+            const days = Math.floor(distance / ONE_DAY);
+            const hours = Math.floor((distance % ONE_DAY) / ONE_HOUR);
+            const minutes = Math.floor((distance % ONE_HOUR) / ONE_MINUTE);
+            const seconds = Math.floor((distance % ONE_MINUTE) / ONE_SECOND);
+
+            countdownTimerEl.textContent = `残り: ${days}日 ${String(hours).padStart(2, '0')}時間 ${String(minutes).padStart(2, '0')}分 ${String(seconds).padStart(2, '0')}秒`;
+            
+            // Check for special messages
+            const dayKey = days.toString();
+            if (specialDates[dayKey] && !shownMessages.has(dayKey)) {
+                showOverlay(specialDates[dayKey], 10 * ONE_SECOND);
+                shownMessages.add(dayKey);
+                localStorage.setItem('shownCountdownMessages', JSON.stringify([...shownMessages]));
+            }
+            // Special case for the day before
+            const dayBefore = new Date('2026-01-16T00:00:00');
+            const isDayBefore = now >= dayBefore.getTime() && now < targetDate;
+            if (isDayBefore && !shownMessages.has('1')) {
+                 showOverlay(specialDates['1'], 10 * ONE_SECOND);
+                 shownMessages.add('1');
+                 localStorage.setItem('shownCountdownMessages', JSON.stringify([...shownMessages]));
+            }
+        }
+        countdownInterval = setInterval(updateCountdown, ONE_SECOND);
+        updateCountdown();
+
+        // --- POMODORO ---
+        const pomodoroDisplay = document.getElementById('pomodoro-timer-display');
+        const sessionTypeDisplay = document.getElementById('pomodoro-session-type');
+        const startPauseBtn = document.getElementById('pomodoro-start-pause');
+        const resetBtn = document.getElementById('pomodoro-reset');
+        const skipBtn = document.getElementById('pomodoro-skip');
+
+        const SESSIONS = {
+            FOCUS: 'FOCUS',
+            SHORT_BREAK: 'SHORT_BREAK',
+            LONG_BREAK: 'LONG_BREAK'
+        };
+
+        const SESSION_DURATIONS = {
+            [SESSIONS.FOCUS]: 25 * 60,
+            [SESSIONS.SHORT_BREAK]: 5 * 60,
+            [SESSIONS.LONG_BREAK]: 15 * 60,
+        };
+        
+        const SESSION_NAMES = {
+            [SESSIONS.FOCUS]: '集中',
+            [SESSIONS.SHORT_BREAK]: '休憩',
+            [SESSIONS.LONG_BREAK]: '長い休憩'
+        };
+
+        let pomodoroState = {
+            timerId: null,
+            isRunning: false,
+            currentSession: SESSIONS.FOCUS,
+            timeRemaining: SESSION_DURATIONS[SESSIONS.FOCUS],
+            focusCycles: 0,
+        };
+
+        // Sound Notification
+        let audioContext;
+        function playNotificationSound() {
+            if (!audioContext) {
+                // Safari requires AudioContext to be created on user gesture
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 1);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 1);
+        }
+
+        function savePomodoroState() {
+            const stateToSave = { ...pomodoroState, timerId: null }; // Don't save timerId
+            localStorage.setItem('pomodoroState', JSON.stringify(stateToSave));
+        }
+
+        function loadPomodoroState() {
+            const savedState = localStorage.getItem('pomodoroState');
+            if (savedState) {
+                pomodoroState = { ...pomodoroState, ...JSON.parse(savedState) };
+            }
+            updatePomodoroDisplay();
+        }
+
+        function updatePomodoroDisplay() {
+            const minutes = Math.floor(pomodoroState.timeRemaining / 60);
+            const seconds = pomodoroState.timeRemaining % 60;
+            pomodoroDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            sessionTypeDisplay.textContent = SESSION_NAMES[pomodoroState.currentSession];
+            document.title = `${pomodoroDisplay.textContent} - ${SESSION_NAMES[pomodoroState.currentSession]}`;
+            startPauseBtn.textContent = pomodoroState.isRunning ? '一時停止' : '開始';
+        }
+
+        function startNextSession() {
+            let nextSession = SESSIONS.FOCUS;
+            if (pomodoroState.currentSession === SESSIONS.FOCUS) {
+                pomodoroState.focusCycles++;
+                if (pomodoroState.focusCycles % 4 === 0) {
+                    nextSession = SESSIONS.LONG_BREAK;
+                } else {
+                    nextSession = SESSIONS.SHORT_BREAK;
+                }
+            }
+            pomodoroState.currentSession = nextSession;
+            pomodoroState.timeRemaining = SESSION_DURATIONS[nextSession];
+            pomodoroState.isRunning = false;
+            updatePomodoroDisplay();
+            savePomodoroState();
+        }
+
+        function tick() {
+            if (pomodoroState.timeRemaining > 0) {
+                pomodoroState.timeRemaining--;
+                updatePomodoroDisplay();
+            } else {
+                clearInterval(pomodoroState.timerId);
+                pomodoroState.timerId = null;
+                pomodoroState.isRunning = false;
+                playNotificationSound();
+                startNextSession();
+            }
+        }
+
+        startPauseBtn.addEventListener('click', () => {
+            // Initialize AudioContext on first user interaction
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            pomodoroState.isRunning = !pomodoroState.isRunning;
+            if (pomodoroState.isRunning) {
+                if (!pomodoroState.timerId) {
+                    pomodoroState.timerId = setInterval(tick, ONE_SECOND);
+                }
+            } else {
+                clearInterval(pomodoroState.timerId);
+                pomodoroState.timerId = null;
+            }
+            updatePomodoroDisplay();
+            savePomodoroState();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            if (confirm('タイマーをリセットしますか？')) {
+                clearInterval(pomodoroState.timerId);
+                pomodoroState.timerId = null;
+                pomodoroState.isRunning = false;
+                pomodoroState.timeRemaining = SESSION_DURATIONS[pomodoroState.currentSession];
+                updatePomodoroDisplay();
+                savePomodoroState();
+            }
+        });
+
+        skipBtn.addEventListener('click', () => {
+            if (confirm('現在のセッションをスキップしますか？')) {
+                clearInterval(pomodoroState.timerId);
+                pomodoroState.timerId = null;
+                playNotificationSound();
+                startNextSession();
+                // Don't auto-start the next session
+            }
+        });
+
+        // --- TODO LIST ---
+        const todoInput = document.getElementById('todo-input');
+        const addTodoBtn = document.getElementById('add-todo-btn');
+        const todoListEl = document.getElementById('todo-list');
+        let todos = [];
+
+        function saveTodos() {
+            localStorage.setItem('todos', JSON.stringify(todos));
+        }
+
+        function renderTodos() {
+            todoListEl.innerHTML = '';
+            todos.forEach((todo, index) => {
+                const li = document.createElement('li');
+                li.dataset.index = index;
+                if (todo.completed) {
+                    li.classList.add('completed');
+                }
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = todo.completed;
+                checkbox.addEventListener('change', () => toggleTodo(index));
+
+                const text = document.createElement('span');
+                text.textContent = todo.text;
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.textContent = '✖';
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.addEventListener('click', () => deleteTodo(index));
+
+                li.appendChild(checkbox);
+                li.appendChild(text);
+                li.appendChild(deleteBtn);
+                todoListEl.appendChild(li);
+            });
+        }
+
+        function addTodo() {
+            const text = todoInput.value.trim();
+            if (text) {
+                todos.push({ text: text, completed: false });
+                todoInput.value = '';
+                saveTodos();
+                renderTodos();
+            }
+        }
+
+        function deleteTodo(index) {
+            todos.splice(index, 1);
+            saveTodos();
+            renderTodos();
+        }
+
+        function toggleTodo(index) {
+            todos[index].completed = !todos[index].completed;
+            saveTodos();
+            renderTodos();
+        }
+
+        addTodoBtn.addEventListener('click', addTodo);
+        todoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addTodo();
+            }
+        });
+
+        function loadTodos() {
+            const savedTodos = localStorage.getItem('todos');
+            if (savedTodos) {
+                todos = JSON.parse(savedTodos);
+            }
+            renderTodos();
+        }
+
+        // --- INITIAL LOAD ---
+        loadPomodoroState();
+        loadTodos();
+    });
+    </script>
+</body>
+</html>
