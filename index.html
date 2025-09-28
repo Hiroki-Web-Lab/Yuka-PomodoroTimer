@@ -232,6 +232,21 @@
       document.getElementById("popup").style.display = "none";
     }
 
+    function playAlert() {
+      // ベル音を再生
+      bellSound.play();
+
+      // 振動 or 代替処理
+      if ('vibrate' in navigator) {
+        navigator.vibrate(300); // Android対応
+      } else {
+        // iPhone Safari簡易版: 短い音でTapticEngineを起動
+        const haptic = new Audio();
+        haptic.src = "data:audio/wav;base64,UklGRkYAAABXQVZFZm10IBAAAAABAAEAESsAABKxAAACABgAZGF0YQwAAAAAAAAAAAD//w==";
+        haptic.play();
+      }
+    }
+
     /* ======== ポモドーロタイマー ======== */
     let timer;
     let remainingTime = 0;
@@ -248,7 +263,7 @@
         updateTimerDisplay();
 
         if (remainingTime <= 0) {
-          bellSound.play();
+          playAlert();
           clearInterval(timer);
           if (isFocus) {
             remainingTime = document.getElementById("break-time").value * 60;
